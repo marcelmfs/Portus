@@ -1,14 +1,18 @@
 # Portus
 
-Portus is an authoritzation server and a user interface for the next generation
+- Website: http://port.us.org/
+- [Blog](http://port.us.org/blog/index.html)
+- Mailing list: [Google Groups](https://groups.google.com/forum/#!forum/portus-dev)
+
+Portus is an authorization server and a user interface for the next generation
 of the Docker registry. Portus targets
 [version 2](https://github.com/docker/distribution/blob/master/docs/spec/api.md)
 of the Docker Registry API. The minimum required version of Registry is 2.1,
 which is the first version supporting soft deletes of blobs.
 
-| master | v2.0 | Code Climate |
+| master | v2.1 | Code Climate |
 |--------|------|--------------|
-| [![Build Status](https://travis-ci.org/SUSE/Portus.svg?branch=master)](https://travis-ci.org/SUSE/Portus) | [![Build Status](https://travis-ci.org/SUSE/Portus.svg?branch=v2.0)](https://travis-ci.org/SUSE/Portus) | [![Code Climate](https://codeclimate.com/github/SUSE/Portus/badges/gpa.svg)](https://codeclimate.com/github/SUSE/Portus) [![Test Coverage](https://codeclimate.com/github/SUSE/Portus/badges/coverage.svg)](https://codeclimate.com/github/SUSE/Portus/coverage) |
+| [![Build Status](https://travis-ci.org/SUSE/Portus.svg?branch=master)](https://travis-ci.org/SUSE/Portus) | [![Build Status](https://travis-ci.org/SUSE/Portus.svg?branch=v2.1)](https://travis-ci.org/SUSE/Portus) | [![Code Climate](https://codeclimate.com/github/SUSE/Portus/badges/gpa.svg)](https://codeclimate.com/github/SUSE/Portus) [![Test Coverage](https://codeclimate.com/github/SUSE/Portus/badges/coverage.svg)](https://codeclimate.com/github/SUSE/Portus/coverage) |
 
 ## Features
 
@@ -64,9 +68,10 @@ each Portus version:
 | Portus | Docker Engine | Docker Distribution |
 |:------:|:-------------:|:-------------------:|
 | master | 1.6+ | 2.0+ |
+| 2.1 | 1.6+ | 2.0+ |
 | 2.0.0 & 2.0.1 | 1.6 to 1.9 | 2.0 to 2.2 |
-| 2.0.2 | 1.6 to 1.9 | 2.0+ |
-| 2.0.3 (soon to be released) | 1.6+ | 2.0+ |
+| 2.0.2 | 1.6 to 1.9 | 2.0 to 2.4 |
+| 2.0.3+ | 1.6+ | 2.0 to 2.4 |
 
 Let's detail some of the version being specified:
 
@@ -90,6 +95,8 @@ of Portus.
 First of all, make sure that you have a working development environment. You
 can easily do this with either Docker or Vagrant, as it's explained on the
 [wiki](https://github.com/SUSE/Portus/wiki#developmentplayground-environments).
+The wiki also has notable pages like
+[How we test Portus](https://github.com/SUSE/Portus/wiki/How-we-test-Portus).
 
 Also, make sure to understand our contribution guidelines, as explained in
 [this](https://github.com/SUSE/Portus/blob/master/CONTRIBUTING.md) document.

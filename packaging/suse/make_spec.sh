@@ -1,4 +1,9 @@
 #!/bin/bash
+bundle version 2>/dev/null
+if [ $? != 0 ];then
+  echo "bundler is not installed. Please install it."
+  exit -1
+fi
 cd $(dirname $0)
 
 if [ $TRAVIS_BRANCH ];then
@@ -11,7 +16,8 @@ if [ $TRAVIS_COMMIT ];then
 else
   commit=$(git log -1 --pretty=format:'%H')
 fi
-version=$(date +%Y%m%d%H%M%S)
+version=$(sed s/-/~/g ../../VERSION)
+version="$version+git$commit"
 date=$(date --rfc-2822)
 year=$(date +%Y)
 
@@ -24,6 +30,9 @@ additional_native_build_requirements() {
   fi
   if [ $1 == "mysql2" ];then
     echo "BuildRequires: libmysqlclient-devel\nRecommends: mariadb\n"
+  fi
+  if [ $1 == "ethon" ];then
+    echo "BuildRequires: libcurl-devel\nRequires: libcurl4\n"
   fi
 }
 
@@ -53,20 +62,19 @@ pushd build/Portus-$branch/
   done
 popd
 
-echo "create Portus.spec based on Portus.spec.in"
-cp Portus.spec.in Portus.spec
-sed -e "s/__BRANCH__/$branch/g" -i Portus.spec
-sed -e "s/__RUBYGEMS_BUILD_REQUIRES__/$build_requires/g" -i Portus.spec
-sed -e "s/__DATE__/$date/g" -i Portus.spec
-sed -e "s/__COMMIT__/$commit/g" -i Portus.spec
-sed -e "s/__VERSION__/$version/g" -i Portus.spec
-sed -e "s/__CURRENT_YEAR__/$year/g" -i Portus.spec
+echo "create portus.spec based on portus.spec.in"
+cp portus.spec.in portus.spec
+sed -e "s/__BRANCH__/$branch/g" -i portus.spec
+sed -e "s/__RUBYGEMS_BUILD_REQUIRES__/$build_requires/g" -i portus.spec
+sed -e "s/__DATE__/$date/g" -i portus.spec
+sed -e "s/__COMMIT__/$commit/g" -i portus.spec
+sed -e "s/__VERSION__/$version/g" -i portus.spec
+sed -e "s/__CURRENT_YEAR__/$year/g" -i portus.spec
 
-if [ -f Portus.spec ];then
+if [ -f portus.spec ];then
   echo "Done!"
   exit 0
 else
   echo "A problem occured creating the spec file."
   exit -1
 fi
-

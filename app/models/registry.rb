@@ -1,3 +1,21 @@
+# == Schema Information
+#
+# Table name: registries
+#
+#  id                :integer          not null, primary key
+#  name              :string(255)      not null
+#  hostname          :string(255)      not null
+#  created_at        :datetime         not null
+#  updated_at        :datetime         not null
+#  use_ssl           :boolean
+#  external_hostname :string(255)
+#
+# Indexes
+#
+#  index_registries_on_hostname  (hostname) UNIQUE
+#  index_registries_on_name      (name) UNIQUE
+#
+
 # Registry holds data regarding the registries registered in the Portus
 # application.
 #
@@ -8,6 +26,7 @@ class Registry < ActiveRecord::Base
 
   validates :name, presence: true, uniqueness: true
   validates :hostname, presence: true, uniqueness: true
+  validates :external_hostname, presence: false
   validates :use_ssl, inclusion: [true, false]
 
   # On create, make sure that all the needed namespaces are in place.
@@ -34,10 +53,14 @@ class Registry < ActiveRecord::Base
 
   # Find the registry for the given push event.
   def self.find_from_event(event)
-    registry = Registry.find_by(hostname: event["request"]["host"])
+    request_hostname = event["request"]["host"]
+    registry = Registry.find_by(hostname: request_hostname)
     if registry.nil?
-      logger.info("Ignoring event coming from unknown registry
-                  #{event["request"]["host"]}")
+      logger.debug("No hostname matching #{request_hostname}, testing external_hostname")
+      registry = Registry.find_by(external_hostname: request_hostname)
+    end
+    if registry.nil?
+      logger.info("Ignoring event coming from unknown registry #{request_hostname}")
     end
     registry
   end
@@ -47,8 +70,9 @@ class Registry < ActiveRecord::Base
   # returns three values:
   #   - A Namespace object.
   #   - A String containing the name of the repository.
-  #   - A String containing the name of the tag.
-  def get_namespace_from_event(event)
+  #   - A String containing the name of the tag or nil if the `fetch_tag`
+  #     parameter has been set to false.
+  def get_namespace_from_event(event, fetch_tag = true)
     repo = event["target"]["repository"]
     if repo.include?("/")
       namespace_name, repo = repo.split("/", 2)
@@ -62,8 +86,12 @@ class Registry < ActiveRecord::Base
       return
     end
 
-    tag_name = get_tag_from_target(namespace, repo, event["target"])
-    return if tag_name.nil?
+    if fetch_tag
+      tag_name = get_tag_from_target(namespace, repo, event["target"])
+      return if tag_name.nil?
+    else
+      tag_name = nil
+    end
 
     [namespace, repo, tag_name]
   end
@@ -74,6 +102,7 @@ class Registry < ActiveRecord::Base
   def reachable?
     msg = ""
 
+    # rubocop:disable Lint/ShadowedException:
     begin
       r = client.reachable?
 
@@ -86,10 +115,10 @@ class Registry < ActiveRecord::Base
     rescue Errno::ETIMEDOUT, Net::OpenTimeout
       msg = "Error: connection timed out. The given registry is not available!"
     rescue Net::HTTPBadResponse
-      if use_ssl
-        msg = "Error: there's something wrong with your SSL configuration."
+      msg = if use_ssl
+        "Error: there's something wrong with your SSL configuration."
       else
-        msg = "Error: not using SSL, but the given registry does use SSL."
+        "Error: not using SSL, but the given registry does use SSL."
       end
     rescue OpenSSL::SSL::SSLError => e
       msg = "SSL error while communicating with the registry, check the server " \
@@ -100,6 +129,7 @@ class Registry < ActiveRecord::Base
       logger.info "Registry not reachable: #{e.inspect}"
       msg = "Error: something went wrong. Check your configuration."
     end
+    # rubocop:enable Lint/ShadowedException:
     msg
   end
 
@@ -107,6 +137,13 @@ class Registry < ActiveRecord::Base
 
   # Fetch the tag being pushed through the given target object.
   def get_tag_from_target(namespace, repo, target)
+    # Since Docker Distribution 2.4 the registry finally sends the tag, so we
+    # don't have to perform requests afterwards.
+    return target["tag"] unless target["tag"].blank?
+
+    # Tough luck, we should now perform requests to fetch the tag. Note that
+    # depending on the Manifest version we have to do one thing or another
+    # because they expose different information.
     case target["mediaType"]
     when "application/vnd.docker.distribution.manifest.v1+json",
       "application/vnd.docker.distribution.manifest.v1+prettyjws"
@@ -150,7 +187,8 @@ class Registry < ActiveRecord::Base
   #
   # Returns the name of the tag if found, nil otherwise.
   def get_tag_from_manifest(target)
-    client.manifest(target["repository"], target["digest"])["tag"]
+    _, _, manifest = client.manifest(target["repository"], target["digest"])
+    manifest["tag"]
   end
 
   # Create the global namespace for this registry and create the personal
@@ -162,14 +200,16 @@ class Registry < ActiveRecord::Base
     team = Team.create(
       name:   "portus_global_team_#{count}",
       owners: User.where(admin: true),
-      hidden: true)
+      hidden: true
+    )
     Namespace.create!(
       name:        "portus_global_namespace_#{count}",
       registry:    self,
-      public:      true,
+      visibility:  Namespace.visibilities[:visibility_public],
       global:      true,
       description: "The global namespace for the registry #{Registry.name}.",
-      team:        team)
+      team:        team
+    )
 
     # TODO: change code once we support multiple registries
     User.find_each(&:create_personal_namespace!)
